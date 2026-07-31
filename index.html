@@ -230,6 +230,7 @@ h1{
 /* ============ SCREEN: wheel ============ */
 .wheel-zone{
   position:relative; width: 350px; height:350px; margin: 6px 0 26px;
+  contain: layout style paint;
 }
 .pointer{
   position:absolute; top:-6px; left:50%; transform:translateX(-50%);
@@ -244,7 +245,11 @@ h1{
   position:relative;
   border: 6px solid #fff;
   box-shadow: 0 18px 34px rgba(138,92,245,0.3);
-  transition: transform 3.6s cubic-bezier(.12,.75,.12,1);
+  will-change: transform;
+  transform: translate3d(0,0,0);
+  -webkit-transform: translate3d(0,0,0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   background: conic-gradient(
     var(--violet-400) 0deg 60deg,
     var(--rose-300) 60deg 120deg,
@@ -285,6 +290,10 @@ h1{
   height: 190px; border-radius: 20px; overflow:hidden;
   margin-bottom: 22px;
   box-shadow: 0 16px 30px rgba(138,92,245,0.22);
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 .scratch-reveal{
   position:absolute;
@@ -300,7 +309,12 @@ h1{
   color: var(--plum-800);
 }
 .scratch-canvas{
-  position:absolute; inset:0; cursor: grab; touch-action:none;
+  position:absolute; inset:0; width:100%; height:100%; cursor: grab;
+  touch-action:none;
+  -webkit-tap-highlight-color: transparent;
+  display:block;
+  z-index:2;
+  background: transparent;
 }
 .scratch-caption{
   font-size:13px; color:#7a6b98; margin-bottom:24px;
@@ -617,6 +631,31 @@ const spinBtn = document.getElementById('spinBtn');
 const resultEl = document.getElementById('wheelResult');
 let wheelRotation = 0;
 let wheelSpunOnce = false;
+let wheelAnimationFrame = null;
+let wheelSpinStart = 0;
+let wheelStartAngle = 0;
+let wheelTargetAngle = 0;
+const wheelSpinDuration = 2800;
+
+function renderWheelRotation(angle){
+  wheelEl.style.transform = `translate3d(0,0,0) rotate(${angle}deg)`;
+}
+
+function animateWheel(timestamp){
+  if(!wheelSpinStart) wheelSpinStart = timestamp;
+  const elapsed = timestamp - wheelSpinStart;
+  const progress = Math.min(elapsed / wheelSpinDuration, 1);
+  const eased = 1 - Math.pow(1 - progress, 3);
+  const nextAngle = wheelStartAngle + (wheelTargetAngle - wheelStartAngle) * eased;
+  renderWheelRotation(nextAngle);
+  if(progress < 1){
+    wheelAnimationFrame = requestAnimationFrame(animateWheel);
+  } else {
+    wheelAnimationFrame = null;
+    wheelSpinStart = 0;
+    wheelRotation = wheelTargetAngle;
+  }
+}
 
 // place labels around the wheel
 const radius = 95; // Adjust depending on wheel size
@@ -638,13 +677,19 @@ spinBtn.addEventListener('click', ()=>{
   spinBtn.disabled = true;
   const sliceAngle = 360 / wheelMessages.length;
   const targetIndex = Math.floor(Math.random() * wheelMessages.length);
-  // land so the chosen slice center sits at the top pointer (0deg)
   const targetCenter = targetIndex * sliceAngle + sliceAngle/2;
   const spins = 5 * 360;
   const finalRotation = wheelRotation + spins + (360 - (wheelRotation % 360)) - targetCenter;
 
-  wheelRotation = finalRotation;
-  wheelEl.style.transform = `rotate(${finalRotation}deg)`;
+  if(wheelAnimationFrame){
+    cancelAnimationFrame(wheelAnimationFrame);
+    wheelAnimationFrame = null;
+  }
+
+  wheelStartAngle = wheelRotation;
+  wheelTargetAngle = finalRotation;
+  wheelSpinStart = 0;
+  wheelAnimationFrame = requestAnimationFrame(animateWheel);
   resultEl.textContent = '';
 
   setTimeout(()=>{
@@ -653,38 +698,47 @@ spinBtn.addEventListener('click', ()=>{
     spinBtn.textContent = 'SPIN AGAIN 🎡';
     wheelSpunOnce = true;
     nextBtn.disabled = false;
-  }, 3700);
+  }, wheelSpinDuration + 100);
 });
 
 /* ---------------------------------------------------------
    SCREEN 4 — scratch card
 --------------------------------------------------------- */
 const canvas = document.getElementById('scratchCanvas');
-const ctx = canvas.getContext('2d');
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
 let scratchRevealed = false;
 let scratchInited = false;
 
 function initScratch(){
   const wrap = canvas.parentElement;
-  canvas.width = wrap.clientWidth;
-  canvas.height = wrap.clientHeight;
-  const grad = ctx.createLinearGradient(0,0,canvas.width,canvas.height);
+  const width = Math.max(1, Math.floor(wrap.clientWidth));
+  const height = Math.max(1, Math.floor(wrap.clientHeight));
+  canvas.width = width;
+  canvas.height = height;
+  canvas.style.opacity = '1';
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+  const grad = ctx.createLinearGradient(0,0,width,height);
   grad.addColorStop(0, '#c9b6f0');
   grad.addColorStop(1, '#f3a6c9');
   ctx.fillStyle = grad;
-  ctx.fillRect(0,0,canvas.width, canvas.height);
+  ctx.fillRect(0,0,width, height);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   ctx.font = '600 15px Inter, sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
   ctx.textAlign = 'center';
-  ctx.fillText('scratch me softly ♡', canvas.width/2, canvas.height/2);
+  ctx.fillText('scratch me softly ♡', width/2, height/2);
 }
-window.addEventListener('resize', ()=>{ if(current === 4) initScratch(); });
+window.addEventListener('resize', ()=>{ if(current === 4) requestAnimationFrame(initScratch); });
 
 let scratching = false;
+let lastScratchPoint = null;
+let revealCheckTick = 0;
 function scratchAt(x,y){
   ctx.globalCompositeOperation = 'destination-out';
   ctx.beginPath();
-  ctx.arc(x,y,22,0,Math.PI*2);
+  ctx.arc(x,y,16,0,Math.PI*2);
   ctx.fill();
 }
 function getPos(e){
@@ -699,12 +753,25 @@ function checkRevealPercent(){
   const total = data.length / (4*20);
   return cleared/total;
 }
-function pointerDown(e){ scratching = true; const p = getPos(e); scratchAt(p.x,p.y); }
+function pointerDown(e){
+  scratching = true;
+  const p = getPos(e);
+  lastScratchPoint = p;
+  scratchAt(p.x,p.y);
+}
 function pointerMove(e){
   if(!scratching) return;
   e.preventDefault();
-  const p = getPos(e); scratchAt(p.x,p.y);
-  if(!scratchRevealed && checkRevealPercent() > 0.45){
+  const p = getPos(e);
+  if(lastScratchPoint){
+    const dx = p.x - lastScratchPoint.x;
+    const dy = p.y - lastScratchPoint.y;
+    if(Math.hypot(dx,dy) < 10) return;
+  }
+  lastScratchPoint = p;
+  scratchAt(p.x,p.y);
+  revealCheckTick++;
+  if(!scratchRevealed && revealCheckTick % 8 === 0 && checkRevealPercent() > 0.4){
     scratchRevealed = true;
     canvas.style.transition = 'opacity .6s ease';
     canvas.style.opacity = '0';
@@ -712,12 +779,12 @@ function pointerMove(e){
     if(current === 4) nextBtn.disabled = false;
   }
 }
-function pointerUp(){ scratching = false; }
+function pointerUp(){ scratching = false; lastScratchPoint = null; }
 
 canvas.addEventListener('mousedown', pointerDown);
 canvas.addEventListener('mousemove', pointerMove);
 window.addEventListener('mouseup', pointerUp);
-canvas.addEventListener('touchstart', pointerDown, {passive:true});
+canvas.addEventListener('touchstart', pointerDown, {passive:false});
 canvas.addEventListener('touchmove', pointerMove, {passive:false});
 canvas.addEventListener('touchend', pointerUp);
 
