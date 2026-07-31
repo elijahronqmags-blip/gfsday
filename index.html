@@ -257,6 +257,7 @@ h1{
 .wheel .slice-label{
   position:absolute; top:50%; left:50%; width: 100px;
   transform-origin: center center;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
   font-size: 11px; font-weight:600; color:#fff;
   line-height:1.25; text-shadow: 0 1px 3px rgba(0,0,0,0.18);
   text-align:left; padding-left:14px;
@@ -320,6 +321,7 @@ h1{
   background-size: cover; background-position:center;
   display:flex; align-items:center; justify-content:center;
   color:#fff; font-size:14px;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
 }
 .photocard .cap{
   font-family: var(--font-script); font-size:17px; color:var(--plum-800);
@@ -725,10 +727,10 @@ canvas.addEventListener('touchend', pointerUp);
 // GALLERY PHOTOS — edit these four entries (or add more).
 // `img` can point to a real photo: 'assets/photo1.jpg'. Leave blank to keep the gradient placeholder.
 const gallery = [
-  { img: '1st picture.jpg', gradient: 'linear-gradient(150deg,#f7b8d8,#a97bff)', emoji: '🌷', caption: 'the first impressions, a first talking stage💞💋' },
-  { img: '2nd picture.jpg', gradient: 'linear-gradient(150deg,#a97bff,#8a5cf5)', emoji: '📷', caption: 'this one leaves me obsessed, a natural beauty😍' },
-  { img: '3rd picture.jpg', gradient: 'linear-gradient(150deg,#f6c99a,#f193c4)', emoji: '💫', caption: 'that first date that I would never forget🥹' },
-  { img: '4th picture.jpg', gradient: 'linear-gradient(150deg,#f193c4,#a97bff)', emoji: '🌙', caption: 'every personality, is my favorite kind🥰' },
+  { img: '1st picture.jpg', gradient: 'linear-gradient(150deg,#f7b8d8,#a97bff)', emoji: '', caption: 'the first impressions, a first talking stage💞💋' },
+  { img: '2nd picture.jpg', gradient: 'linear-gradient(150deg,#a97bff,#8a5cf5)', emoji: '', caption: 'this one leaves me obsessed, a natural beauty😍' },
+  { img: '3rd picture.jpg', gradient: 'linear-gradient(150deg,#f6c99a,#f193c4)', emoji: '', caption: 'that first date that I would never forget🥹' },
+  { img: '4th picture.jpg', gradient: 'linear-gradient(150deg,#f193c4,#a97bff)', emoji: '', caption: 'every personality, is my favorite kind🥰' },
 ];
 let galIndex = 0;
 const galFrame = document.getElementById('galFrame');
@@ -746,7 +748,7 @@ function renderGallery(){
   const item = gallery[galIndex];
   galFrame.style.backgroundImage = item.img ? `url('${item.img}')` : 'none';
   galFrame.style.background = item.img ? `url('${item.img}') center/cover` : item.gradient;
-  galFrame.textContent = item.img ? '' : item.emoji;
+  galFrame.textContent = item.emoji;
   galCap.textContent = item.caption;
   galIdx.textContent = String(galIndex+1).padStart(2,'0') + ' / ' + String(gallery.length).padStart(2,'0');
   [...galDots.children].forEach((d,i)=> d.classList.toggle('on', i===galIndex));
