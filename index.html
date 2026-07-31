@@ -585,11 +585,14 @@ function goTo(index){
   if(current === 4) nextBtn.disabled = !scratchRevealed;
   if(current === 0 || current === 1 || current === 3) nextBtn.disabled = false;
 
-  // the scratch canvas has 0 width/height while its screen is display:none,
-  // so it can only be sized correctly once the screen is actually visible
-  if(current === 4 && !scratchInited){
+  // the scratch canvas can report 0x0 while hidden, so we rebuild it only once
+  // the card is actually visible and then again on any layout change for iPhone.
+  if(current === 4){
     scratchInited = true;
-    requestAnimationFrame(initScratch);
+    requestAnimationFrame(()=>{
+      initScratch();
+      setTimeout(initScratch, 80);
+    });
   }
 }
 
@@ -711,13 +714,19 @@ let scratchInited = false;
 
 function initScratch(){
   const wrap = canvas.parentElement;
+  if(!wrap) return;
   const width = Math.max(1, Math.floor(wrap.clientWidth));
   const height = Math.max(1, Math.floor(wrap.clientHeight));
+  if(!width || !height) return;
+
   canvas.width = width;
   canvas.height = height;
   canvas.style.opacity = '1';
+  canvas.style.pointerEvents = 'auto';
+  ctx.globalCompositeOperation = 'source-over';
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, width, height);
+
   const grad = ctx.createLinearGradient(0,0,width,height);
   grad.addColorStop(0, '#c9b6f0');
   grad.addColorStop(1, '#f3a6c9');
@@ -726,11 +735,14 @@ function initScratch(){
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.font = '600 15px Inter, sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
   ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
   ctx.fillText('scratch me softly ♡', width/2, height/2);
+  scratchRevealed = false;
 }
 window.addEventListener('resize', ()=>{ if(current === 4) requestAnimationFrame(initScratch); });
+window.addEventListener('orientationchange', ()=>{ if(current === 4) requestAnimationFrame(initScratch); });
 
 let scratching = false;
 let lastScratchPoint = null;
@@ -754,6 +766,7 @@ function checkRevealPercent(){
   return cleared/total;
 }
 function pointerDown(e){
+  if(!canvas.width || !canvas.height) return;
   scratching = true;
   const p = getPos(e);
   lastScratchPoint = p;
@@ -763,6 +776,7 @@ function pointerMove(e){
   if(!scratching) return;
   e.preventDefault();
   const p = getPos(e);
+  if(!canvas.width || !canvas.height) return;
   if(lastScratchPoint){
     const dx = p.x - lastScratchPoint.x;
     const dy = p.y - lastScratchPoint.y;
@@ -771,7 +785,7 @@ function pointerMove(e){
   lastScratchPoint = p;
   scratchAt(p.x,p.y);
   revealCheckTick++;
-  if(!scratchRevealed && revealCheckTick % 8 === 0 && checkRevealPercent() > 0.4){
+  if(!scratchRevealed && revealCheckTick % 10 === 0 && checkRevealPercent() > 0.35){
     scratchRevealed = true;
     canvas.style.transition = 'opacity .6s ease';
     canvas.style.opacity = '0';
@@ -787,6 +801,7 @@ window.addEventListener('mouseup', pointerUp);
 canvas.addEventListener('touchstart', pointerDown, {passive:false});
 canvas.addEventListener('touchmove', pointerMove, {passive:false});
 canvas.addEventListener('touchend', pointerUp);
+canvas.addEventListener('touchcancel', pointerUp);
 
 /* ---------------------------------------------------------
    SCREEN 3 — gallery slideshow
